@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterStoreDto, RefreshTokenDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -29,6 +29,16 @@ export class AuthController {
   @Post('register')
   register(@Body() dto: RegisterStoreDto) {
     return this.authService.registerStore(dto);
+  }
+
+  /**
+   * GET /auth/check-subdomain
+   * Checks if a subdomain is available
+   */
+  @Public()
+  @Get('check-subdomain')
+  checkSubdomain(@Query('subdomain') subdomain: string) {
+    return this.authService.checkSubdomainAvailability(subdomain);
   }
 
   /**

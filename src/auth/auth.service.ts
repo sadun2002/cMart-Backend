@@ -109,6 +109,13 @@ export class AuthService {
     };
   }
 
+  async checkSubdomainAvailability(subdomain: string) {
+    if (!subdomain || subdomain.length < 3) return { available: false };
+    const subdomainClean = subdomain.toLowerCase().replace(/[^a-z0-9-]/g, '');
+    const existing = await this.prisma.tenant.findUnique({ where: { subdomain: subdomainClean } });
+    return { available: !existing };
+  }
+
   // ─────────────────────────────────────────────────────────
   // STORE OWNER REGISTRATION — creates tenant + subscription
   // ─────────────────────────────────────────────────────────
@@ -142,9 +149,11 @@ export class AuthService {
       const tenant = await tx.tenant.create({
         data: {
           businessName: dto.businessName,
+          businessType: dto.businessType,
           subdomain: subdomainClean,
           ownerId: user.id,
           trialEndsAt,
+          active: false,
           users: { connect: { id: user.id } },
         },
       });
@@ -189,9 +198,14 @@ export class AuthService {
         name: result.user.name,
         role: 'STORE_OWNER',
         tenantId: result.tenant.id,
-        tenant: { id: result.tenant.id, businessName: result.tenant.businessName, subdomain: result.tenant.subdomain },
+        tenant: { 
+          id: result.tenant.id, 
+          businessName: result.tenant.businessName, 
+          subdomain: result.tenant.subdomain,
+          active: result.tenant.active 
+        },
       },
-      redirectTo: '/owner/dashboard',
+      redirectTo: '/pending',
     };
   }
 

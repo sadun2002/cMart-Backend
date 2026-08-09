@@ -18,6 +18,9 @@ import { AttendanceModule } from './attendance/attendance.module';
 
 import { CustomersModule } from './customers/customers.module';
 import { CategoriesModule } from './categories/categories.module';
+import { SuppliersModule } from './suppliers/suppliers.module';
+import { BranchesModule } from './branches/branches.module';
+import { InventoryModule } from './inventory/inventory.module';
 
 @Module({
   imports: [
@@ -33,6 +36,9 @@ import { CategoriesModule } from './categories/categories.module';
     AttendanceModule,
     CustomersModule,
     CategoriesModule,
+    SuppliersModule,
+    BranchesModule,
+    InventoryModule,
     // Phase 2+: AdminModule, TenantsModule, ProductsModule, SalesModule, etc.
   ],
   controllers: [AppController],

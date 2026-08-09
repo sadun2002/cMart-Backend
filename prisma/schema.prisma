@@ -100,6 +100,25 @@ enum SupportTicketStatus {
   CLOSED
 }
 
+enum CustomerGroup {
+  REGULAR
+  WHOLESALE
+  VIP
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum CustomerPaymentTerms {
+  CASH
+  NET_7
+  NET_15
+  NET_30
+}
+
 // ============================================================
 // SUPER ADMIN
 // ============================================================
@@ -154,6 +173,7 @@ model Theme {
 model Tenant {
   id            Int       @id @default(autoincrement())
   businessName  String
+  businessType  String    @default("Retail Shop")
   subdomain     String    @unique // e.g. "johnsstore"
   customDomain  String?   @unique // e.g. "www.johnsstore.lk" (Enterprise only)
   plan          Plan      @default(FREE)
@@ -177,6 +197,8 @@ model Tenant {
   employees    Employee[]
   attendance   Attendance[]
   suppliers    Supplier[]
+  branches     Branch[]
+  branchInventories BranchInventory[]
 
   subscription   Subscription?
   settings       TenantSettings?
@@ -318,6 +340,8 @@ model Employee {
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenantId     Int
   tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId     Int?
+  branch       Branch? @relation(fields: [branchId], references: [id])
 
   employeeCode String
   position     EmployeePosition @default(CASHIER)
@@ -364,6 +388,50 @@ model Attendance {
 }
 
 // ============================================================
+// BRANCHES & INVENTORY
+// ============================================================
+
+model Branch {
+  id       Int    @id @default(autoincrement())
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  
+  name     String
+  location String?
+  contact  String?
+  manager  String?
+  
+  inventory BranchInventory[]
+  sales     Sale[]
+  employees Employee[]
+  
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+model BranchInventory {
+  id        Int     @id @default(autoincrement())
+  tenantId  Int
+  branchId  Int
+  productId Int
+  
+  stock     Int     @default(0)
+  minStock  Int     @default(10)
+  price     Decimal @db.Decimal(10, 2)
+  cost      Decimal? @db.Decimal(10, 2)
+  
+  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@index([tenantId])
+}
+
+// ============================================================
 // CATEGORIES
 // ============================================================
 
@@ -406,16 +474,7 @@ model Product {
   barcode     String?
   sku         String?
 
-  price       Decimal  @db.Decimal(10, 2)
-  cost        Decimal? @db.Decimal(10, 2)
-  comparePrice Decimal? @db.Decimal(10, 2)
-
-  // Inventory
-  stock       Int      @default(0)
-  minStock    Int      @default(10)
-  trackStock  Boolean  @default(true)
-  unit        String   @default("pcs") // pcs, kg, litre, etc.
-
+  price       Decimal  @default(0) @db.Decimal(10, 2)
   // E-commerce
   showOnWebsite Boolean  @default(false)
   featured      Boolean  @default(false)
@@ -428,6 +487,7 @@ model Product {
 
   saleItems        SaleItem[]
   onlineOrderItems OnlineOrderItem[]
+  branchInventories BranchInventory[]
 
   // SEO
   metaTitle       String?
@@ -448,7 +508,6 @@ model Product {
   @@index([tenantId, showOnWebsite])
   @@index([tenantId, featured])
   @@index([tenantId, categoryId])
-  @@index([tenantId, stock])
 }
 
 model ProductImage {
@@ -472,8 +531,9 @@ model Supplier {
   tenant        Tenant @relation(fields: [tenantId], references: [id])
 
   name          String
-  contactPerson String?
-  phone         String?
+  contactPerson      String?
+  contactPersonPhone String?
+  phone              String?
   email         String?
   address       String? @db.Text
   city          String?
@@ -495,12 +555,21 @@ model Customer {
   tenantId Int
   tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  name    String
-  phone   String?
-  email   String?
-  address String? @db.Text
-  city    String?
-  notes   String?
+  name          String
+  phone         String?
+  email         String?
+  address       String? @db.Text
+  city          String?
+  province      String?
+  customerGroup CustomerGroup @default(REGULAR)
+  dateOfBirth   String?
+  gender        Gender @default(OTHER)
+  notes         String? @db.Text
+
+  openingBalance Decimal @default(0) @db.Decimal(10, 2)
+  creditLimit    Decimal @default(0) @db.Decimal(10, 2)
+  paymentTerms   CustomerPaymentTerms @default(CASH)
+  loyaltyEnabled Boolean @default(false)
 
   totalSpent  Decimal @default(0) @db.Decimal(10, 2)
   totalOrders Int     @default(0)
@@ -526,6 +595,8 @@ model Sale {
   id       Int    @id @default(autoincrement())
   tenantId Int
   tenant   Tenant @relation(fields: [tenantId], references: [id])
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   invoiceNo String
 

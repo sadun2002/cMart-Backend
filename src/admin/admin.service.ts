@@ -35,7 +35,7 @@ export class AdminService {
     return this.prisma.tenant.findMany({
       include: {
         owner: {
-          select: { id: true, name: true, email: true },
+          select: { id: true, name: true, email: true, phone: true },
         },
         subscription: true,
       },

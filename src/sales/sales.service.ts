@@ -15,6 +15,7 @@ interface CreateSaleDto {
   amountLKR: number;
   cashierId?: number;
   customerId?: number;
+  branchId?: number;
 }
 
 @Injectable()
@@ -37,15 +38,26 @@ export class SalesService {
           throw new BadRequestException(`Product ${item.productId} not found`);
         }
         
-        if (product.stock < item.quantity) {
-          throw new BadRequestException(`Insufficient stock for ${product.name}`);
-        }
+        if (data.branchId) {
+          const inventory = await tx.branchInventory.findUnique({
+            where: {
+              branchId_productId: {
+                branchId: data.branchId,
+                productId: item.productId,
+              }
+            }
+          });
 
-        // 2. Reduce stock
-        await tx.product.update({
-          where: { id: product.id },
-          data: { stock: { decrement: item.quantity } },
-        });
+          if (!inventory || inventory.stock < item.quantity) {
+            throw new BadRequestException(`Insufficient stock for ${product.name} at branch ${data.branchId}`);
+          }
+
+          // 2. Reduce stock
+          await tx.branchInventory.update({
+            where: { id: inventory.id },
+            data: { stock: { decrement: item.quantity } },
+          });
+        }
       }
 
       // 3. Create Sale Record
@@ -58,6 +70,7 @@ export class SalesService {
           total: data.amountLKR,
           paymentMethod: data.paymentMethod,
           customerId: data.customerId,
+          branchId: data.branchId,
           items: {
             create: data.items.map(item => ({
               productId: item.productId,
@@ -95,6 +108,8 @@ export class SalesService {
       take: 50,
       include: {
         user: { select: { name: true } },
+        customer: true,
+        items: true,
       }
     });
   }

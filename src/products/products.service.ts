@@ -61,31 +61,21 @@ export class ProductsService {
   }
 
   async createProduct(tenantId: number, data: any, files?: any[]) {
-    const { price, cost, stockQuantity, showOnWebsite, ...rest } = data;
+    const { showOnWebsite, categoryId, subcategoryId, ...rest } = data;
+    
+    // Clean up category IDs to null if they are 'null' string
+    const finalCategoryId = subcategoryId !== 'null' && subcategoryId ? parseInt(subcategoryId) : 
+                            (categoryId !== 'null' && categoryId ? parseInt(categoryId) : null);
     
     let productData: any = {
       ...rest,
     };
     
-    if (price !== undefined && price !== null && price !== '') {
-      const parsedPrice = parseFloat(price);
-      if (!isNaN(parsedPrice)) productData.price = parsedPrice;
-    }
-    
-    if (cost !== undefined && cost !== null && cost !== '') {
-      const parsedCost = parseFloat(cost);
-      if (!isNaN(parsedCost)) productData.cost = parsedCost;
-    }
-    
-    if (stockQuantity !== undefined && stockQuantity !== null && stockQuantity !== '') {
-      const parsedStock = parseInt(stockQuantity, 10);
-      if (!isNaN(parsedStock)) productData.stock = parsedStock;
-    }
-
     if (showOnWebsite !== undefined) {
-      productData.showOnWebsite = showOnWebsite === 'true';
+      productData.showOnWebsite = showOnWebsite === 'true' || showOnWebsite === true;
     }
     
+    productData.categoryId = finalCategoryId;
     productData.tenantId = tenantId;
 
     const product = await this.prisma.product.create({
@@ -120,28 +110,21 @@ export class ProductsService {
 
     if (!product) throw new NotFoundException('Product not found or access denied');
 
-    const { price, cost, stockQuantity, showOnWebsite, deletedImageIds, ...rest } = data;
+    const { showOnWebsite, categoryId, subcategoryId, deletedImageIds, ...rest } = data;
+    
+    const finalCategoryId = subcategoryId !== 'null' && subcategoryId ? parseInt(subcategoryId) : 
+                            (categoryId !== 'null' && categoryId ? parseInt(categoryId) : null);
+                            
     let productData: any = {
       ...rest,
     };
     
-    if (price !== undefined && price !== null && price !== '') {
-      const parsedPrice = parseFloat(price);
-      if (!isNaN(parsedPrice)) productData.price = parsedPrice;
-    }
-    
-    if (cost !== undefined && cost !== null && cost !== '') {
-      const parsedCost = parseFloat(cost);
-      if (!isNaN(parsedCost)) productData.cost = parsedCost;
-    }
-    
-    if (stockQuantity !== undefined && stockQuantity !== null && stockQuantity !== '') {
-      const parsedStock = parseInt(stockQuantity, 10);
-      if (!isNaN(parsedStock)) productData.stock = parsedStock;
-    }
-
     if (showOnWebsite !== undefined) {
-      productData.showOnWebsite = showOnWebsite === 'true';
+      productData.showOnWebsite = showOnWebsite === 'true' || showOnWebsite === true;
+    }
+    
+    if (finalCategoryId !== undefined) {
+      productData.categoryId = finalCategoryId;
     }
 
     if (deletedImageIds) {

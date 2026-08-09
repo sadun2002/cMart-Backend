@@ -150,12 +150,9 @@ async function main() {
         name: p.name,
         slug: p.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
         price: p.price,
-        cost: p.cost,
-        stock: p.stock,
         barcode: p.barcode,
         categoryId: p.categoryId,
         showOnWebsite: true,
-        unit: 'pcs',
       },
     });
   }
