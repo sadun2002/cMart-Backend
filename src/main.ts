@@ -29,7 +29,7 @@ async function bootstrap() {
       const allowedPatterns = [
         frontendUrl,
         /\.cmart\.lk$/,
-        /localhost:\d+$/,
+        /(localhost|127\.0\.0\.1):\d+$/,
       ];
       const allowed = allowedPatterns.some((pattern) =>
         typeof pattern === 'string' ? origin === pattern : pattern.test(origin),

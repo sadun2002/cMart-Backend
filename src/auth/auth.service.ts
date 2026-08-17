@@ -8,7 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { LoginDto, RegisterStoreDto } from './dto/auth.dto';
+import { LoginDto, RegisterStoreDto, UpdatePlanDto } from './dto/auth.dto';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { TRIAL_DAYS, DEFAULT_CASHIER_PERMISSIONS } from '../common/constants';
 import { UserRole } from '@prisma/client';
@@ -64,7 +64,17 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({
       where: { email: dto.email },
       include: {
-        tenant: { select: { id: true, businessName: true, subdomain: true, active: true, suspended: true } },
+        tenant: { 
+          select: { 
+            id: true, 
+            businessName: true, 
+            subdomain: true, 
+            plan: true, 
+            active: true, 
+            suspended: true,
+            subscription: { select: { plan: true, status: true, startDate: true, trialEndDate: true, nextBillingDate: true, endDate: true } }
+          } 
+        },
         employee: { select: { permissions: true, position: true } },
       },
     });
@@ -224,10 +234,40 @@ export class AuthService {
       select: {
         id: true, email: true, name: true, role: true, phone: true, avatar: true,
         tenantId: true, createdAt: true,
-        tenant: { select: { id: true, businessName: true, subdomain: true, plan: true, active: true } },
+        tenant: { 
+          select: { 
+            id: true, businessName: true, subdomain: true, plan: true, active: true,
+            subscription: { select: { plan: true, status: true, startDate: true, trialEndDate: true, nextBillingDate: true, endDate: true } }
+          } 
+        },
         employee: { select: { permissions: true, position: true, employeeCode: true } },
       },
     });
+  }
+
+  async updateTenantPlan(userId: number, plan: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantId: true },
+    });
+
+    if (!user || !user.tenantId) {
+      throw new BadRequestException('Tenant not found');
+    }
+
+    const updatedTenant = await this.prisma.tenant.update({
+      where: { id: user.tenantId },
+      data: { plan: plan as any },
+      select: { id: true, businessName: true, subdomain: true, plan: true, active: true },
+    });
+
+    await this.prisma.subscription.upsert({
+      where: { tenantId: user.tenantId },
+      update: { plan: plan as any, status: 'ACTIVE' },
+      create: { tenantId: user.tenantId, plan: plan as any, status: 'ACTIVE' },
+    });
+
+    return { tenant: updatedTenant };
   }
 
   // ─────────────────────────────────────────────────────────

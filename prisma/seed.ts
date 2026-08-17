@@ -20,6 +20,27 @@ async function main() {
   });
   console.log(`✅ Super Admin: ${admin.email}`);
 
+  // ─── Themes ───────────────────────────────────────────────
+  const minimalistTheme = await prisma.theme.upsert({
+    where: { slug: 'minimalist-store' },
+    update: {
+      previewUrl: '/s/demo',
+    },
+    create: {
+      name: 'Minimalist Store',
+      slug: 'minimalist-store',
+      description: 'A clean, modern, and minimalist theme for elegant brands.',
+      price: 0,
+      type: 'FREE',
+      isActive: true,
+      tags: ['minimal', 'fashion', 'clean'],
+      version: '1.0.0',
+      uploadedById: admin.id,
+      previewUrl: '/s/demo',
+    }
+  });
+  console.log(`✅ Theme Seeded: ${minimalistTheme.name}`);
+
   // ─── Demo Store Owner ─────────────────────────────────────
   const ownerPassword = await bcrypt.hash('owner123', 12);
   const demoOwner = await prisma.user.upsert({
@@ -66,6 +87,17 @@ async function main() {
       status: 'TRIAL',
       trialEndDate: trialEnd,
     },
+  });
+
+  // Assign Theme to Tenant
+  await prisma.tenantTheme.upsert({
+    where: { tenantId: demoTenant.id },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      themeId: minimalistTheme.id,
+      customizations: {},
+    }
   });
 
   console.log(`✅ Demo Owner: demo@cmart.lk (password: owner123)`);

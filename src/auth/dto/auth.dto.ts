@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength, Matches, IsOptional } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, MinLength, MaxLength, Matches, IsOptional, IsIn } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -55,4 +55,9 @@ export class RefreshTokenDto {
   @IsString()
   @IsNotEmpty()
   refreshToken: string;
+}
+
+export class UpdatePlanDto {
+  @IsIn(['FREE', 'PRO', 'ENTERPRISE'])
+  plan: string;
 }

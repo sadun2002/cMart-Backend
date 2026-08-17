@@ -1,6 +1,6 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Query } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Query, Patch } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterStoreDto, RefreshTokenDto } from './dto/auth.dto';
+import { LoginDto, RegisterStoreDto, RefreshTokenDto, UpdatePlanDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
@@ -49,6 +49,16 @@ export class AuthController {
   @Get('me')
   getMe(@CurrentUser() user: any) {
     return this.authService.getMe(user.id, user.type);
+  }
+
+  /**
+   * PATCH /auth/plan
+   * Updates the current user's tenant subscription plan
+   */
+  @UseGuards(JwtAuthGuard)
+  @Patch('plan')
+  updatePlan(@CurrentUser() user: any, @Body() dto: UpdatePlanDto) {
+    return this.authService.updateTenantPlan(user.id, dto.plan);
   }
 
   /**
