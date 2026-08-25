@@ -18,10 +18,12 @@ export class SyncController {
     @Request() req,
     @Body()
     payload: {
-      products: any[];
-      sales: any[];
-      expenses: any[];
-      settings: any[];
+      categories?: any[];
+      products?: any[];
+      sales?: any[];
+      sale_items?: any[];
+      expenses?: any[];
+      settings?: any[];
     },
   ) {
     const tenantId = req.user.tenantId;

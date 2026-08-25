@@ -11,15 +11,17 @@ export class SyncService {
     tenantId: number,
     userId: number,
     payload: {
+      categories?: any[];
       products?: any[];
       sales?: any[];
+      sale_items?: any[];
       expenses?: any[];
       settings?: any[];
     },
   ) {
     this.logger.log(`Starting bulk sync for tenant ${tenantId}`);
     
-    const { products = [], sales = [], expenses = [], settings = [] } = payload;
+    const { categories = [], products = [], sales = [], sale_items = [], expenses = [], settings = [] } = payload;
 
     return this.prisma.$transaction(async (tx) => {
       // 1. Process Categories & Products
