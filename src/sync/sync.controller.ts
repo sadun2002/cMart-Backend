@@ -1,19 +1,17 @@
 import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
 import { SyncService } from './sync.service';
-import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-import { PlanGuard } from '../common/guards/plan.guard';
-import { Roles } from '../common/decorators/roles.decorator';
-import { PlanType } from '../common/decorators/plan.decorator';
-import { RolesGuard } from '../common/guards/roles.guard';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
+import { CloudSyncGuard } from '../auth/guards/cloud-sync.guard';
 
 @Controller('sync')
-@UseGuards(JwtAuthGuard, RolesGuard, PlanGuard)
+@UseGuards(JwtAuthGuard, RolesGuard, CloudSyncGuard)
 export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
   @Post('bulk')
   @Roles('SUPER_ADMIN', 'ADMIN') // Only admins of the tenant can sync data
-  @PlanType('PRO', 'ENTERPRISE') // Only PRO and ENTERPRISE tiers can sync to cloud
   async bulkSync(
     @Request() req,
     @Body()
