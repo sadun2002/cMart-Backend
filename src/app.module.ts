@@ -25,6 +25,7 @@ import { BannersModule } from './banners/banners.module';
 import { StorefrontModule } from './storefront/storefront.module';
 import { MailModule } from './mail/mail.module';
 import { CronModule } from './cron/cron.module';
+import { SyncModule } from './sync/sync.module';
 
 @Module({
   imports: [
@@ -47,6 +48,7 @@ import { CronModule } from './cron/cron.module';
     StorefrontModule,
     MailModule,
     CronModule,
+    SyncModule,
   ],
   controllers: [AppController],
   providers: [

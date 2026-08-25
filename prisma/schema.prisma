@@ -217,6 +217,7 @@ model Tenant {
   themePurchases ThemePurchase[]
   supportTickets SupportTicket[]
   banners        Banner[]
+  expenses       Expense[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -459,6 +460,7 @@ model Category {
   description String?
   image       String?
   sortOrder   Int     @default(0)
+  offlineId   String? @unique
 
   parentId Int?
   parent   Category?  @relation("SubCategories", fields: [parentId], references: [id])
@@ -487,6 +489,7 @@ model Product {
   description String? @db.Text
   barcode     String?
   sku         String?
+  offlineId   String? @unique
 
   price         Decimal   @default(0) @db.Decimal(10, 2)
   // E-commerce
@@ -613,6 +616,7 @@ model Sale {
   branch   Branch? @relation(fields: [branchId], references: [id])
 
   invoiceNo String
+  offlineId String? @unique
 
   subtotal Decimal @db.Decimal(10, 2)
   tax      Decimal @default(0) @db.Decimal(10, 2)
@@ -888,4 +892,23 @@ model Release {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ============================================================
+// EXPENSES (POS)
+// ============================================================
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  offlineId   String?  @unique
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  category    String
+  date        DateTime
+  
+  createdAt   DateTime @default(now())
+
+  @@index([tenantId])
 }
