@@ -24,9 +24,15 @@ enum AdminRole {
 }
 
 enum Plan {
-  FREE
+  STARTUP
   PRO
   ENTERPRISE
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  LIFETIME
 }
 
 enum UserRole {
@@ -73,6 +79,7 @@ enum OrderStatus {
   DELIVERED
   CANCELLED
   REFUNDED
+  RETURNED
 }
 
 enum DeliveryType {
@@ -126,7 +133,7 @@ enum CustomerPaymentTerms {
 model SuperAdmin {
   id        Int       @id @default(autoincrement())
   email     String    @unique
-  password  String    // bcrypt hashed
+  password  String // bcrypt hashed
   name      String
   role      AdminRole @default(ADMIN)
   avatar    String?
@@ -135,8 +142,8 @@ model SuperAdmin {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
 
-  themes    Theme[]
-  tickets   SupportTicket[]
+  themes  Theme[]
+  tickets SupportTicket[]
 }
 
 // ============================================================
@@ -148,8 +155,8 @@ model Theme {
   name        String
   slug        String    @unique
   description String?   @db.Text
-  previewUrl  String?   // Preview screenshot URL (Supabase Storage)
-  zipUrl      String?   // Theme ZIP URL (Supabase Storage)
+  previewUrl  String? // Preview screenshot URL (Supabase Storage)
+  zipUrl      String? // Theme ZIP URL (Supabase Storage)
   price       Decimal   @default(0) @db.Decimal(10, 2) // 0 = free
   type        ThemeType @default(FREE)
   isActive    Boolean   @default(true)
@@ -159,11 +166,11 @@ model Theme {
   uploadedById Int
   uploadedBy   SuperAdmin @relation(fields: [uploadedById], references: [id])
 
-  purchases   ThemePurchase[]
-  tenants     TenantTheme[]
+  purchases ThemePurchase[]
+  tenants   TenantTheme[]
 
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 // ============================================================
@@ -176,7 +183,7 @@ model Tenant {
   businessType  String    @default("Retail Shop")
   subdomain     String    @unique // e.g. "johnsstore"
   customDomain  String?   @unique // e.g. "www.johnsstore.lk" (Enterprise only)
-  plan          Plan      @default(FREE)
+  plan          Plan      @default(STARTUP)
   active        Boolean   @default(true)
   suspended     Boolean   @default(false)
   suspendedAt   DateTime?
@@ -185,19 +192,23 @@ model Tenant {
   logoUrl       String?
   bannerUrl     String?
 
-  ownerId   Int    @unique
-  owner     User   @relation("TenantOwner", fields: [ownerId], references: [id])
-  users     User[] @relation("TenantUsers")
+  hardwareFingerprint String?
+  lastSyncDate        DateTime?
+  cloudRetentionUntil DateTime? // Date when archived cloud data is deleted for STARTUP users
 
-  products     Product[]
-  categories   Category[]
-  sales        Sale[]
-  customers    Customer[]
-  onlineOrders OnlineOrder[]
-  employees    Employee[]
-  attendance   Attendance[]
-  suppliers    Supplier[]
-  branches     Branch[]
+  ownerId Int    @unique
+  owner   User   @relation("TenantOwner", fields: [ownerId], references: [id])
+  users   User[] @relation("TenantUsers")
+
+  products          Product[]
+  categories        Category[]
+  sales             Sale[]
+  customers         Customer[]
+  onlineOrders      OnlineOrder[]
+  employees         Employee[]
+  attendance        Attendance[]
+  suppliers         Supplier[]
+  branches          Branch[]
   branchInventories BranchInventory[]
 
   subscription   Subscription?
@@ -205,6 +216,7 @@ model Tenant {
   theme          TenantTheme?
   themePurchases ThemePurchase[]
   supportTickets SupportTicket[]
+  banners        Banner[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -216,19 +228,19 @@ model Tenant {
 }
 
 model TenantSettings {
-  id              Int     @id @default(autoincrement())
-  tenantId        Int     @unique
-  tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   // Localization
-  currency        String  @default("LKR")
-  timezone        String  @default("Asia/Colombo")
-  language        String  @default("en") // "en" | "si"
+  currency String @default("LKR")
+  timezone String @default("Asia/Colombo")
+  language String @default("en") // "en" | "si"
 
   // Tax
-  taxEnabled      Boolean @default(false)
-  taxRate         Decimal @default(0) @db.Decimal(5, 2) // e.g. 18.00 for 18%
-  taxName         String  @default("VAT")
+  taxEnabled Boolean @default(false)
+  taxRate    Decimal @default(0) @db.Decimal(5, 2) // e.g. 18.00 for 18%
+  taxName    String  @default("VAT")
 
   // Receipt
   receiptHeader   String? @db.Text
@@ -237,8 +249,8 @@ model TenantSettings {
   thermalEnabled  Boolean @default(false)
 
   // Inventory
-  lowStockAlert   Boolean @default(true)
-  lowStockThreshold Int   @default(10)
+  lowStockAlert     Boolean @default(true)
+  lowStockThreshold Int     @default(10)
 
   // Online Store
   storeDescription String? @db.Text
@@ -251,45 +263,45 @@ model TenantSettings {
   whatsappNumber   String?
 
   // Payment
-  payhereEnabled   Boolean @default(false)
+  payhereEnabled    Boolean @default(false)
   payhereMerchantId String?
-  payhereSecret    String?
-  cashEnabled      Boolean @default(true)
-  cardEnabled      Boolean @default(true)
+  payhereSecret     String?
+  cashEnabled       Boolean @default(true)
+  cardEnabled       Boolean @default(true)
 
   // Shipping
-  freeShippingAbove Decimal? @db.Decimal(10, 2)
-  defaultShippingFee Decimal @default(0) @db.Decimal(10, 2)
-  deliveryEnabled  Boolean   @default(true)
-  pickupEnabled    Boolean   @default(true)
-  pickupAddress    String?   @db.Text
+  freeShippingAbove  Decimal? @db.Decimal(10, 2)
+  defaultShippingFee Decimal  @default(0) @db.Decimal(10, 2)
+  deliveryEnabled    Boolean  @default(true)
+  pickupEnabled      Boolean  @default(true)
+  pickupAddress      String?  @db.Text
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model TenantTheme {
-  id              Int     @id @default(autoincrement())
-  tenantId        Int     @unique
-  tenant          Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  themeId         Int
-  theme           Theme   @relation(fields: [themeId], references: [id])
+  id       Int    @id @default(autoincrement())
+  tenantId Int    @unique
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  themeId  Int
+  theme    Theme  @relation(fields: [themeId], references: [id])
 
   // Customizations (colors, fonts, etc.)
-  customizations  Json    @default("{}")
+  customizations Json @default("{}")
   // Example: { primaryColor: "#1E40AF", fontFamily: "Inter", heroImage: "url", logoUrl: "url" }
 
-  appliedAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  appliedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ThemePurchase {
-  id         Int      @id @default(autoincrement())
+  id         Int     @id @default(autoincrement())
   tenantId   Int
-  tenant     Tenant   @relation(fields: [tenantId], references: [id])
+  tenant     Tenant  @relation(fields: [tenantId], references: [id])
   themeId    Int
-  theme      Theme    @relation(fields: [themeId], references: [id])
-  pricePaid  Decimal  @db.Decimal(10, 2)
+  theme      Theme   @relation(fields: [themeId], references: [id])
+  pricePaid  Decimal @db.Decimal(10, 2)
   payhereRef String?
 
   purchasedAt DateTime @default(now())
@@ -304,7 +316,7 @@ model ThemePurchase {
 model User {
   id       Int      @id @default(autoincrement())
   email    String   @unique
-  password String   // bcrypt hashed
+  password String // bcrypt hashed
   name     String
   phone    String?
   avatar   String?
@@ -314,10 +326,12 @@ model User {
   tenant      Tenant? @relation("TenantUsers", fields: [tenantId], references: [id])
   ownedTenant Tenant? @relation("TenantOwner")
 
-  employee    Employee?
-  sales       Sale[]
-  attendance  Attendance[]
+  employee     Employee?
+  sales        Sale[]
+  attendance   Attendance[]
   onlineOrders OnlineOrder[]
+  addresses    UserAddress[]
+  cards        UserCard[]
 
   active        Boolean   @default(true)
   emailVerified Boolean   @default(false)
@@ -335,27 +349,27 @@ model User {
 // ============================================================
 
 model Employee {
-  id           Int     @id @default(autoincrement())
-  userId       Int     @unique
-  user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
-  tenantId     Int
-  tenant       Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  branchId     Int?
-  branch       Branch? @relation(fields: [branchId], references: [id])
+  id       Int     @id @default(autoincrement())
+  userId   Int     @unique
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenantId Int
+  tenant   Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  branchId Int?
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   employeeCode String
   position     EmployeePosition @default(CASHIER)
-  salary       Decimal? @db.Decimal(10, 2)
-  joinDate     DateTime @default(now())
+  salary       Decimal?         @db.Decimal(10, 2)
+  joinDate     DateTime         @default(now())
 
   // Granular permissions JSON
   // { canProcessSales, canViewProducts, canAddProducts, canEditProducts,
   //   canDeleteProducts, canViewCustomers, canAddCustomers,
   //   canViewReports, canViewAllSales, canManageInventory }
-  permissions  Json     @default("{}")
+  permissions Json @default("{}")
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([tenantId])
   @@index([employeeCode])
@@ -366,11 +380,11 @@ model Employee {
 // ============================================================
 
 model Attendance {
-  id          Int              @id @default(autoincrement())
-  userId      Int
-  user        User             @relation(fields: [userId], references: [id])
-  tenantId    Int
-  tenant      Tenant           @relation(fields: [tenantId], references: [id])
+  id       Int    @id @default(autoincrement())
+  userId   Int
+  user     User   @relation(fields: [userId], references: [id])
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   date        DateTime         @db.Date
   checkIn     DateTime?
@@ -379,8 +393,8 @@ model Attendance {
   status      AttendanceStatus @default(PRESENT)
   notes       String?
 
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([userId, date])
   @@index([userId, date])
@@ -395,16 +409,16 @@ model Branch {
   id       Int    @id @default(autoincrement())
   tenantId Int
   tenant   Tenant @relation(fields: [tenantId], references: [id])
-  
+
   name     String
   location String?
   contact  String?
   manager  String?
-  
+
   inventory BranchInventory[]
   sales     Sale[]
   employees Employee[]
-  
+
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -413,19 +427,19 @@ model Branch {
 }
 
 model BranchInventory {
-  id        Int     @id @default(autoincrement())
+  id        Int @id @default(autoincrement())
   tenantId  Int
   branchId  Int
   productId Int
-  
-  stock     Int     @default(0)
-  minStock  Int     @default(10)
-  price     Decimal @db.Decimal(10, 2)
-  cost      Decimal? @db.Decimal(10, 2)
-  
-  branch    Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
-  tenant    Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  stock    Int      @default(0)
+  minStock Int      @default(10)
+  price    Decimal  @db.Decimal(10, 2)
+  cost     Decimal? @db.Decimal(10, 2)
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([branchId, productId])
   @@index([tenantId])
@@ -436,24 +450,24 @@ model BranchInventory {
 // ============================================================
 
 model Category {
-  id          Int      @id @default(autoincrement())
-  tenantId    Int
-  tenant      Tenant   @relation(fields: [tenantId], references: [id])
+  id       Int    @id @default(autoincrement())
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   name        String
   slug        String
   description String?
   image       String?
-  sortOrder   Int      @default(0)
+  sortOrder   Int     @default(0)
 
-  parentId    Int?
-  parent      Category?  @relation("SubCategories", fields: [parentId], references: [id])
-  children    Category[] @relation("SubCategories")
-  products    Product[]
+  parentId Int?
+  parent   Category?  @relation("SubCategories", fields: [parentId], references: [id])
+  children Category[] @relation("SubCategories")
+  products Product[]
 
-  active      Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([tenantId, slug])
   @@index([tenantId])
@@ -464,29 +478,29 @@ model Category {
 // ============================================================
 
 model Product {
-  id          Int     @id @default(autoincrement())
-  tenantId    Int
-  tenant      Tenant  @relation(fields: [tenantId], references: [id])
+  id       Int    @id @default(autoincrement())
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
   name        String
   slug        String?
-  description String?  @db.Text
+  description String? @db.Text
   barcode     String?
   sku         String?
 
-  price       Decimal  @default(0) @db.Decimal(10, 2)
+  price         Decimal   @default(0) @db.Decimal(10, 2)
   // E-commerce
-  showOnWebsite Boolean  @default(false)
-  featured      Boolean  @default(false)
+  showOnWebsite Boolean   @default(false)
+  featured      Boolean   @default(false)
   publishedAt   DateTime?
 
-  categoryId  Int?
-  category    Category? @relation(fields: [categoryId], references: [id])
-  images      ProductImage[]
-  tags        String[]
+  categoryId Int?
+  category   Category?      @relation(fields: [categoryId], references: [id])
+  images     ProductImage[]
+  tags       String[]
 
-  saleItems        SaleItem[]
-  onlineOrderItems OnlineOrderItem[]
+  saleItems         SaleItem[]
+  onlineOrderItems  OnlineOrderItem[]
   branchInventories BranchInventory[]
 
   // SEO
@@ -494,10 +508,10 @@ model Product {
   metaDescription String?
 
   // Shipping weight/dimensions
-  weight  Float?
-  length  Float?
-  width   Float?
-  height  Float?
+  weight Float?
+  length Float?
+  width  Float?
+  height Float?
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -526,18 +540,18 @@ model ProductImage {
 // ============================================================
 
 model Supplier {
-  id            Int    @id @default(autoincrement())
-  tenantId      Int
-  tenant        Tenant @relation(fields: [tenantId], references: [id])
+  id       Int    @id @default(autoincrement())
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id])
 
-  name          String
+  name               String
   contactPerson      String?
   contactPersonPhone String?
   phone              String?
-  email         String?
-  address       String? @db.Text
-  city          String?
-  notes         String? @db.Text
+  email              String?
+  address            String? @db.Text
+  city               String?
+  notes              String? @db.Text
 
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -558,18 +572,18 @@ model Customer {
   name          String
   phone         String?
   email         String?
-  address       String? @db.Text
+  address       String?       @db.Text
   city          String?
   province      String?
   customerGroup CustomerGroup @default(REGULAR)
   dateOfBirth   String?
-  gender        Gender @default(OTHER)
-  notes         String? @db.Text
+  gender        Gender        @default(OTHER)
+  notes         String?       @db.Text
 
-  openingBalance Decimal @default(0) @db.Decimal(10, 2)
-  creditLimit    Decimal @default(0) @db.Decimal(10, 2)
+  openingBalance Decimal              @default(0) @db.Decimal(10, 2)
+  creditLimit    Decimal              @default(0) @db.Decimal(10, 2)
   paymentTerms   CustomerPaymentTerms @default(CASH)
-  loyaltyEnabled Boolean @default(false)
+  loyaltyEnabled Boolean              @default(false)
 
   totalSpent  Decimal @default(0) @db.Decimal(10, 2)
   totalOrders Int     @default(0)
@@ -592,18 +606,18 @@ model Customer {
 // ============================================================
 
 model Sale {
-  id       Int    @id @default(autoincrement())
+  id       Int     @id @default(autoincrement())
   tenantId Int
-  tenant   Tenant @relation(fields: [tenantId], references: [id])
+  tenant   Tenant  @relation(fields: [tenantId], references: [id])
   branchId Int?
   branch   Branch? @relation(fields: [branchId], references: [id])
 
   invoiceNo String
 
-  subtotal  Decimal @db.Decimal(10, 2)
-  tax       Decimal @default(0) @db.Decimal(10, 2)
-  discount  Decimal @default(0) @db.Decimal(10, 2)
-  total     Decimal @db.Decimal(10, 2)
+  subtotal Decimal @db.Decimal(10, 2)
+  tax      Decimal @default(0) @db.Decimal(10, 2)
+  discount Decimal @default(0) @db.Decimal(10, 2)
+  total    Decimal @db.Decimal(10, 2)
 
   paymentMethod PaymentMethod
   paymentStatus PaymentStatus @default(COMPLETED)
@@ -615,8 +629,8 @@ model Sale {
   userId     Int
   user       User      @relation(fields: [userId], references: [id])
 
-  items  SaleItem[]
-  notes  String?    @db.Text
+  items SaleItem[]
+  notes String?    @db.Text
 
   createdAt DateTime @default(now())
 
@@ -632,7 +646,7 @@ model SaleItem {
   sale        Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
   productId   Int
   product     Product @relation(fields: [productId], references: [id])
-  productName String  // snapshot at time of sale
+  productName String // snapshot at time of sale
   quantity    Int
   price       Decimal @db.Decimal(10, 2) // unit price at time of sale
   cost        Decimal @default(0) @db.Decimal(10, 2) // cost at time of sale
@@ -652,13 +666,13 @@ model OnlineOrder {
   orderNumber String @unique
 
   // Customer info (guest or registered)
-  customerId     Int?
-  customer       Customer? @relation(fields: [customerId], references: [id])
-  userId         Int?
-  user           User?     @relation(fields: [userId], references: [id])
-  customerName   String
-  customerEmail  String
-  customerPhone  String
+  customerId    Int?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  userId        Int?
+  user          User?     @relation(fields: [userId], references: [id])
+  customerName  String
+  customerEmail String
+  customerPhone String
 
   // Shipping / Delivery
   deliveryType    DeliveryType @default(DELIVERY)
@@ -679,7 +693,8 @@ model OnlineOrder {
   notes          String? @db.Text
   trackingNumber String?
 
-  items OnlineOrderItem[]
+  items   OnlineOrderItem[]
+  history OrderHistory[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -695,10 +710,25 @@ model OnlineOrderItem {
   order       OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   productId   Int
   product     Product     @relation(fields: [productId], references: [id])
-  productName String      // snapshot
+  productName String // snapshot
   quantity    Int
   price       Decimal     @db.Decimal(10, 2)
   subtotal    Decimal     @db.Decimal(10, 2)
+
+  @@index([orderId])
+}
+
+// ============================================================
+// ORDER HISTORY
+// ============================================================
+
+model OrderHistory {
+  id        Int         @id @default(autoincrement())
+  orderId   Int
+  order     OnlineOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status    OrderStatus
+  note      String?
+  createdAt DateTime    @default(now())
 
   @@index([orderId])
 }
@@ -712,14 +742,15 @@ model Subscription {
   tenantId Int    @unique
   tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  plan            Plan               @default(FREE)
+  plan            Plan               @default(STARTUP)
   status          SubscriptionStatus @default(TRIAL)
+  billingCycle    BillingCycle       @default(MONTHLY)
   startDate       DateTime           @default(now())
   trialEndDate    DateTime?
   nextBillingDate DateTime?
   endDate         DateTime?
 
-  amountLKR   Decimal @default(0) @db.Decimal(10, 2)
+  amountLKR    Decimal @default(0) @db.Decimal(10, 2)
   payhereSubId String? // PayHere subscription ID
 
   payments SubscriptionPayment[]
@@ -751,15 +782,15 @@ model SubscriptionPayment {
 // ============================================================
 
 model SupportTicket {
-  id       Int    @id @default(autoincrement())
+  id       Int     @id @default(autoincrement())
   tenantId Int?
   tenant   Tenant? @relation(fields: [tenantId], references: [id])
 
-  subject    String
-  message    String   @db.Text
-  email      String
-  name       String
-  status     SupportTicketStatus @default(OPEN)
+  subject String
+  message String              @db.Text
+  email   String
+  name    String
+  status  SupportTicketStatus @default(OPEN)
 
   assignedToId Int?
   assignedTo   SuperAdmin? @relation(fields: [assignedToId], references: [id])
@@ -774,13 +805,87 @@ model SupportTicket {
 }
 
 model SupportTicketReply {
-  id       Int          @id @default(autoincrement())
+  id       Int           @id @default(autoincrement())
   ticketId Int
   ticket   SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
-  message   String   @db.Text
-  fromAdmin Boolean  @default(false) // true = admin reply, false = tenant reply
+  message    String  @db.Text
+  fromAdmin  Boolean @default(false) // true = admin reply, false = tenant reply
   senderName String
 
   createdAt DateTime @default(now())
+}
+
+// ============================================================
+// BANNERS (Storefront Homepage)
+// ============================================================
+
+model Banner {
+  id       Int    @id @default(autoincrement())
+  tenantId Int
+  tenant   Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  title    String
+  subtitle String?
+  image    String // Supabase URL
+  ctaText  String?
+  ctaLink  String?
+  status   String  @default("Inactive")
+  order    Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([tenantId])
+}
+
+// ============================================================
+// STOREFRONT USER MODELS (Addresses & Cards)
+// ============================================================
+
+model UserAddress {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  type      String  @default("Home") // Home, Work
+  name      String
+  street    String
+  city      String
+  country   String
+  phone     String
+  isDefault Boolean @default(false)
+
+  @@index([userId])
+}
+
+model UserCard {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  brand     String
+  last4     String
+  expiry    String
+  isDefault Boolean @default(false)
+
+  @@index([userId])
+}
+
+// ============================================================
+// APP RELEASES (For Desktop Auto-Updater)
+// ============================================================
+model Release {
+  id       Int      @id @default(autoincrement())
+  version  String   @unique
+  notes    String?
+  pub_date DateTime @default(now())
+
+  // Platform specific
+  target    String @default("windows-x86_64") // e.g., windows-x86_64, darwin-x86_64, darwin-aarch64
+  url       String // Download URL for the update .exe / .zip
+  signature String // Signature of the update file (.sig contents)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }

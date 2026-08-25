@@ -22,6 +22,53 @@ export class ThemesService {
     });
   }
 
+  async getMyTheme(tenantId: number) {
+    const tenantTheme = await this.prisma.tenantTheme.findUnique({
+      where: { tenantId },
+      include: { theme: true },
+    });
+    
+    if (!tenantTheme) {
+      // Fallback to default theme if not set
+      const defaultTheme = await this.prisma.theme.findFirst({ where: { slug: 'minimalist-store' } });
+      if (defaultTheme) {
+        return this.prisma.tenantTheme.create({
+          data: {
+            tenantId,
+            themeId: defaultTheme.id,
+            customizations: {},
+          },
+          include: { theme: true },
+        });
+      }
+      throw new NotFoundException('No active theme found for this tenant');
+    }
+    
+    return tenantTheme;
+  }
+
+  async updateCustomizations(tenantId: number, customizations: any) {
+    const tenantTheme = await this.getMyTheme(tenantId);
+    
+    // Merge existing customizations with new ones
+    const currentCustomizations = typeof tenantTheme.customizations === 'object' && tenantTheme.customizations !== null 
+      ? tenantTheme.customizations 
+      : {};
+      
+    const newCustomizations = {
+      ...currentCustomizations,
+      ...customizations,
+    };
+
+    return this.prisma.tenantTheme.update({
+      where: { tenantId },
+      data: {
+        customizations: newCustomizations,
+      },
+      include: { theme: true },
+    });
+  }
+
   async createTheme(data: {
     name: string;
     description?: string;

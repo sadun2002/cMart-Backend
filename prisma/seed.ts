@@ -83,7 +83,8 @@ async function main() {
     update: {},
     create: {
       tenantId: demoTenant.id,
-      plan: 'FREE',
+      plan: 'STARTUP',
+      billingCycle: 'MONTHLY',
       status: 'TRIAL',
       trialEndDate: trialEnd,
     },

@@ -21,6 +21,10 @@ import { CategoriesModule } from './categories/categories.module';
 import { SuppliersModule } from './suppliers/suppliers.module';
 import { BranchesModule } from './branches/branches.module';
 import { InventoryModule } from './inventory/inventory.module';
+import { BannersModule } from './banners/banners.module';
+import { StorefrontModule } from './storefront/storefront.module';
+import { MailModule } from './mail/mail.module';
+import { CronModule } from './cron/cron.module';
 
 @Module({
   imports: [
@@ -39,7 +43,10 @@ import { InventoryModule } from './inventory/inventory.module';
     SuppliersModule,
     BranchesModule,
     InventoryModule,
-    // Phase 2+: AdminModule, TenantsModule, ProductsModule, SalesModule, etc.
+    BannersModule,
+    StorefrontModule,
+    MailModule,
+    CronModule,
   ],
   controllers: [AppController],
   providers: [

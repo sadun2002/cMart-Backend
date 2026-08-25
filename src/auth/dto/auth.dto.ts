@@ -9,6 +9,25 @@ export class LoginDto {
   password: string;
 }
 
+export class ForgotPasswordDto {
+  @IsEmail()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  token: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(50)
+  @Matches(/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[\W_])/, {
+    message: 'Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character',
+  })
+  password: string;
+}
+
 export class RegisterStoreDto {
   @IsString()
   @IsNotEmpty()
@@ -45,10 +64,9 @@ export class RegisterStoreDto {
   })
   subdomain: string;
 
-  @IsOptional()
   @IsString()
   @Matches(/^\d{10}$/, { message: 'Phone number must be exactly 10 digits' })
-  phone?: string;
+  phone: string;
 }
 
 export class RefreshTokenDto {
@@ -58,6 +76,33 @@ export class RefreshTokenDto {
 }
 
 export class UpdatePlanDto {
-  @IsIn(['FREE', 'PRO', 'ENTERPRISE'])
+  @IsIn(['STARTUP', 'PRO', 'ENTERPRISE'])
   plan: string;
 }
+
+export class RegisterCustomerDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  name: string;
+
+  @IsEmail()
+  @MaxLength(100)
+  email: string;
+
+  @IsString()
+  @MinLength(8)
+  @MaxLength(50)
+  password: string;
+
+  @IsString()
+  @IsNotEmpty()
+  subdomain: string;
+}
+
+export class SyncDeviceDto {
+  @IsString()
+  @IsNotEmpty()
+  fingerprint: string;
+}
+

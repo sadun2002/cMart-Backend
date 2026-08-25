@@ -17,17 +17,17 @@ export const COMPANY_ADDRESS = 'Colombo, Sri Lanka';
 // ============================================================
 
 export const PLAN_LIMITS = {
-  FREE: {
-    maxProducts: 100,
-    maxEmployees: 2,
-    maxOrdersPerMonth: 100,
+  STARTUP: {
+    maxProducts: 500, // increased limit
+    maxEmployees: 3,
+    maxOrdersPerMonth: 0, // offline
     customDomain: false,
     prioritySupport: false,
     advancedReports: false,
     multiLocation: false,
   },
   PRO: {
-    maxProducts: 1000,
+    maxProducts: 5000,
     maxEmployees: 10,
     maxOrdersPerMonth: Infinity,
     customDomain: false,
@@ -51,12 +51,22 @@ export const PLAN_LIMITS = {
 // ============================================================
 
 export const PLAN_PRICING = {
-  FREE: 0,
-  PRO: 2500,
-  ENTERPRISE: 10000,
+  STARTUP: {
+    MONTHLY: 990,
+    YEARLY: 9900,
+    LIFETIME: 24900,
+  },
+  PRO: {
+    MONTHLY: 2490,
+    YEARLY: 24900,
+  },
+  ENTERPRISE: {
+    MONTHLY: 5990,
+    YEARLY: 59900,
+  },
 } as const;
 
-export const TRIAL_DAYS = 14;
+export const TRIAL_DAYS = 30;
 
 // ============================================================
 // JWT CONFIG
