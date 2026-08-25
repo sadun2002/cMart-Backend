@@ -46,6 +46,9 @@ async function bootstrap() {
       const allowedPatterns = [
         frontendUrl,
         /\.cmart\.lk$/,
+        /\.chathudisa\.com$/, // Custom domain support
+        /\.vercel\.app$/, // Allow all Vercel preview/production links
+        /^https:\/\/c-mart-frontend\.vercel\.app$/, // Specific frontend domain
         /(localhost|127\.0\.0\.1)(:\d+)?$/, // Allow local dev and desktop app
         /^https?:\/\/tauri\.localhost$/,
         /^tauri:\/\/localhost$/,
