@@ -24,100 +24,118 @@ export class SyncService {
     const { categories = [], products = [], sales = [], sale_items = [], expenses = [], settings = [] } = payload;
 
     return this.prisma.$transaction(async (tx) => {
-      // 1. Process Categories & Products
-      for (const prod of products) {
-        let categoryId: number | null = null;
+      // 1. Process Categories
+      const categoryIdMap = new Map<number, number>(); // SQLite ID -> Postgres ID
+      for (const cat of categories) {
+        const offId = cat.offlineId || cat.id?.toString();
+        if (!offId) continue;
+        const categorySlug = cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-');
         
-        // Find or create category
-        if (prod.category) {
-          const categorySlug = prod.category.toLowerCase().replace(/\s+/g, '-');
-          let cat = await tx.category.findUnique({
-            where: { tenantId_slug: { tenantId, slug: categorySlug } },
-          });
-          
-          if (!cat) {
-            cat = await tx.category.create({
-              data: {
-                tenantId,
-                name: prod.category,
-                slug: categorySlug,
-              },
-            });
-          }
-          categoryId = cat.id;
-        }
+        let backendCat = await tx.category.findUnique({
+          where: { offlineId: offId },
+        });
 
-        // Upsert Product
-        await tx.product.upsert({
-          where: { offlineId: prod.id },
+        if (!backendCat) {
+          backendCat = await tx.category.create({
+            data: {
+              tenantId,
+              offlineId: offId,
+              name: cat.name,
+              slug: categorySlug,
+              description: cat.description,
+              active: cat.active !== 0,
+            },
+          });
+        } else {
+          backendCat = await tx.category.update({
+            where: { offlineId: offId },
+            data: {
+              name: cat.name,
+              slug: categorySlug,
+              description: cat.description,
+              active: cat.active !== 0,
+            },
+          });
+        }
+        categoryIdMap.set(cat.id, backendCat.id);
+      }
+
+      // 2. Process Products
+      const productIdMap = new Map<number, number>(); // SQLite ID -> Postgres ID
+      for (const prod of products) {
+        const offId = prod.offlineId || prod.id?.toString();
+        if (!offId) continue;
+        const backendCategoryId = prod.categoryId ? categoryIdMap.get(prod.categoryId) || null : null;
+        
+        const backendProd = await tx.product.upsert({
+          where: { offlineId: offId },
           create: {
             tenantId,
-            offlineId: prod.id,
+            offlineId: offId,
             name: prod.name,
             sku: prod.sku || null,
+            barcode: prod.barcode || null,
             price: prod.price || 0,
-            categoryId,
+            categoryId: backendCategoryId,
+            active: prod.active !== 0,
           },
           update: {
             name: prod.name,
             sku: prod.sku || null,
+            barcode: prod.barcode || null,
             price: prod.price || 0,
-            categoryId,
+            categoryId: backendCategoryId,
+            active: prod.active !== 0,
           },
         });
-        
-        // Note: we don't sync 'stock' directly here because stock is managed via BranchInventory in the Cloud.
-        // For a full implementation, we would create a BranchInventory record for the main branch.
-        // To keep it simple, we skip stock sync or we can fetch the first branch and update it.
+        productIdMap.set(prod.id, backendProd.id);
       }
 
-      // 2. Process Sales
-      // Create a fallback product for offline sales if items aren't detailed
-      let fallbackProduct = await tx.product.findFirst({
-        where: { tenantId, name: 'Offline Sale' }
-      });
-      if (!fallbackProduct) {
-        fallbackProduct = await tx.product.create({
-          data: {
-            tenantId,
-            name: 'Offline Sale',
-            price: 0,
-            active: false
-          }
-        });
-      }
-
+      // 3. Process Sales
+      const saleIdMap = new Map<number, number>(); // SQLite ID -> Postgres ID
       for (const sale of sales) {
-        // Upsert Sale
-        const invoiceNo = `OFF-${sale.id.slice(0, 8).toUpperCase()}`;
+        const offId = sale.offlineId || sale.id?.toString();
+        if (!offId) continue;
+        const invoiceNo = `OFF-${offId.slice(0, 8).toUpperCase()}`;
         
-        const existingSale = await tx.sale.findUnique({
-          where: { offlineId: sale.id },
+        let existingSale = await tx.sale.findUnique({
+          where: { offlineId: offId },
         });
 
         if (!existingSale) {
-          await tx.sale.create({
+          existingSale = await tx.sale.create({
             data: {
               tenantId,
-              offlineId: sale.id,
+              offlineId: offId,
               invoiceNo,
-              subtotal: sale.total,
+              subtotal: sale.subtotal || sale.total,
               total: sale.total,
-              paymentMethod: 'CASH', // Default for offline
-              paymentStatus: 'COMPLETED',
+              paymentMethod: sale.paymentMethod || 'CASH',
+              paymentStatus: sale.paymentStatus || 'COMPLETED',
               userId: userId,
-              createdAt: new Date(sale.created_at),
-              items: {
-                create: [
-                  {
-                    productId: fallbackProduct.id,
-                    productName: 'Offline Sale Data',
-                    quantity: 1,
-                    price: sale.total,
-                    subtotal: sale.total,
-                  }
-                ]
-              }
+              createdAt: new Date(sale.createdAt || sale.created_at || new Date()),
+            }
+          });
+        }
+        saleIdMap.set(sale.id, existingSale.id);
+      }
+
+      // 4. Process Sale Items
+      for (const item of sale_items) {
+        const backendSaleId = saleIdMap.get(item.saleId);
+        const backendProductId = productIdMap.get(item.productId);
+        
+        if (backendSaleId && backendProductId) {
+          await tx.saleItem.create({
+            data: {
+              saleId: backendSaleId,
+              productId: backendProductId,
+              productName: item.productName || 'Offline Item',
+              quantity: item.quantity,
+              price: item.price,
+              cost: item.cost || 0,
+              discount: item.discount || 0,
+              subtotal: item.subtotal,
             }
           });
         }
