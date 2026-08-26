@@ -101,7 +101,7 @@ export class AppController {
 
     const urlParts = latestRelease.url.split('/');
     const fileName = urlParts[urlParts.length - 1]; 
-    const filePath = join(process.cwd(), 'uploads', 'releases', fileName);
+    const filePath = join(__dirname, '..', 'uploads', 'releases', fileName);
 
     const fs = require('fs');
     if (!fs.existsSync(filePath)) {
