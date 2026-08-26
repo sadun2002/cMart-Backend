@@ -88,7 +88,7 @@ export class AppController {
   @Get('api/releases/download/:target')
   async downloadLatestRelease(
     @Param('target') target: string,
-    @Res() res: Response
+    @Res({ passthrough: true }) res: Response
   ) {
     const latestRelease = await this.prisma.release.findFirst({
       where: { target },
@@ -103,8 +103,20 @@ export class AppController {
     const fileName = urlParts[urlParts.length - 1]; 
     const filePath = join(process.cwd(), 'uploads', 'releases', fileName);
 
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      throw new NotFoundException('The setup file for this release is missing on the server.');
+    }
+
     const friendlyName = `cMart_POS_v${latestRelease.version}_${target}.exe`;
 
-    return res.download(filePath, friendlyName);
+    res.set({
+      'Content-Type': 'application/octet-stream',
+      'Content-Disposition': `attachment; filename="${friendlyName}"`,
+    });
+
+    const { StreamableFile } = require('@nestjs/common');
+    const file = fs.createReadStream(filePath);
+    return new StreamableFile(file);
   }
 }
