@@ -49,7 +49,11 @@ export class AdminController {
   @Post('releases/upload')
   @UseInterceptors(FileInterceptor('file', {
     storage: diskStorage({
-      destination: require('path').join(__dirname, '..', '..', 'uploads', 'releases'),
+      destination: (req, file, cb) => {
+        const uploadPath = require('path').join(__dirname, '..', '..', 'uploads', 'releases');
+        require('fs').mkdirSync(uploadPath, { recursive: true });
+        cb(null, uploadPath);
+      },
       filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
         cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
