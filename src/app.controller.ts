@@ -26,6 +26,30 @@ export class AppController {
     return { status: 'ok', timestamp: new Date().toISOString() };
   }
 
+  @Public()
+  @Get('api/debug-files')
+  debugListFiles() {
+    const fs = require('fs');
+    const path = require('path');
+    const uploadPath = path.join(__dirname, '..', 'uploads', 'releases');
+    const cwdPath = path.join(process.cwd(), 'uploads', 'releases');
+    
+    let dirnameFiles = [];
+    let cwdFiles = [];
+    
+    try { dirnameFiles = fs.readdirSync(uploadPath); } catch(e) { dirnameFiles = [e.message]; }
+    try { cwdFiles = fs.readdirSync(cwdPath); } catch(e) { cwdFiles = [e.message]; }
+    
+    return {
+      __dirname,
+      processCwd: process.cwd(),
+      uploadPath,
+      cwdPath,
+      dirnameFiles,
+      cwdFiles
+    };
+  }
+
   // Tauri Auto-Updater Endpoint
   @Public()
   @Get('api/releases/latest/:target/:arch/:current_version')
