@@ -62,7 +62,7 @@ export class AdminController {
   }))
   uploadReleaseFile(@UploadedFile() file: Express.Multer.File) {
     if (!file) throw new BadRequestException('File is required');
-    const backendUrl = this.configService.get<string>('BACKEND_URL') || 'http://localhost:3001';
+    const backendUrl = this.configService.get<string>('BACKEND_URL') || 'https://cmart-backend-production.up.railway.app';
     return { url: `${backendUrl}/uploads/releases/${file.filename}` };
   }
 
