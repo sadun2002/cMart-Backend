@@ -83,12 +83,12 @@ export class AppController {
     });
   }
 
-  // Web Download Endpoint (Friendly Filename)
+  // Web Download Endpoint (Friendly Filename & Proper headers for .exe Icon)
   @Public()
   @Get('api/releases/download/:target')
   async downloadLatestRelease(
     @Param('target') target: string,
-    @Res({ passthrough: true }) res: Response
+    @Res() res: Response
   ) {
     const latestRelease = await this.prisma.release.findFirst({
       where: { target },
@@ -96,7 +96,7 @@ export class AppController {
     });
 
     if (!latestRelease) {
-      throw new NotFoundException('No release found for this platform');
+      return res.status(404).json({ message: 'No release found for this platform' });
     }
 
     const urlParts = latestRelease.url.split('/');
@@ -105,18 +105,48 @@ export class AppController {
 
     const fs = require('fs');
     if (!fs.existsSync(filePath)) {
-      throw new NotFoundException('The setup file for this release is missing on the server.');
+      return res.status(404).json({ message: 'The setup file for this release is missing on the server.' });
     }
 
     const friendlyName = `cMart_POS_v${latestRelease.version}_${target}.exe`;
 
-    res.set({
-      'Content-Type': 'application/octet-stream',
-      'Content-Disposition': `attachment; filename="${friendlyName}"`,
+    res.download(filePath, friendlyName, (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).json({ message: 'Failed to download file' });
+      }
+    });
+  }
+
+  // Dashboard Download Endpoint by ID
+  @Public()
+  @Get('api/releases/:id/download')
+  async downloadReleaseById(
+    @Param('id') id: string,
+    @Res() res: Response
+  ) {
+    const release = await this.prisma.release.findUnique({
+      where: { id: +id },
     });
 
-    const { StreamableFile } = require('@nestjs/common');
-    const file = fs.createReadStream(filePath);
-    return new StreamableFile(file);
+    if (!release) {
+      return res.status(404).json({ message: 'Release not found' });
+    }
+
+    const urlParts = release.url.split('/');
+    const fileName = urlParts[urlParts.length - 1]; 
+    const filePath = join(__dirname, '..', 'uploads', 'releases', fileName);
+
+    const fs = require('fs');
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ message: 'The setup file for this release is missing on the server.' });
+    }
+
+    const friendlyName = `cMart_POS_v${release.version}_${release.target}.exe`;
+
+    res.download(filePath, friendlyName, (err) => {
+      if (err && !res.headersSent) {
+        res.status(500).json({ message: 'Failed to download file' });
+      }
+    });
   }
 }
