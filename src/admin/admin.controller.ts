@@ -55,8 +55,9 @@ export class AdminController {
         cb(null, uploadPath);
       },
       filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-        cb(null, `${uniqueSuffix}${extname(file.originalname)}`);
+        const cleanName = file.originalname.replace(/[\s\(\)]+/g, '_');
+        const uniquePrefix = Date.now();
+        cb(null, `${uniquePrefix}_${cleanName}`);
       },
     }),
   }))
