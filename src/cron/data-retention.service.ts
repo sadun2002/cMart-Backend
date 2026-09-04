@@ -43,8 +43,11 @@ export class DataRetentionService {
           });
 
           // Delete other heavy cloud data (Customers, Branch Inventory)
-          await tx.branchInventory.deleteMany({
-            where: { branch: { tenantId: tenant.id } },
+          await tx.branchProduct.deleteMany({
+            where: { tenantId: tenant.id },
+          });
+          await tx.inventory.deleteMany({
+            where: { tenantId: tenant.id },
           });
           
           await tx.customer.deleteMany({

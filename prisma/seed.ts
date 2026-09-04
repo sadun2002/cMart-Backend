@@ -174,18 +174,51 @@ async function main() {
     { name: 'Casual Dress (M)', price: 6500, cost: 3200, stock: 15, barcode: 'CD001M', categoryId: categories[0].id },
   ];
 
+  // Create Default Branch
+  const defaultBranch = await prisma.branch.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      tenantId: demoTenant.id,
+      name: 'Main Branch',
+      location: 'Colombo',
+    },
+  });
+
   for (const p of products) {
-    await prisma.product.upsert({
+    const createdProduct = await prisma.product.upsert({
       where: { tenantId_slug: { tenantId: demoTenant.id, slug: p.name.toLowerCase().replace(/[^a-z0-9]/g, '-') } },
       update: {},
       create: {
         tenantId: demoTenant.id,
         name: p.name,
         slug: p.name.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-        price: p.price,
         barcode: p.barcode,
         categoryId: p.categoryId,
         showOnWebsite: true,
+      },
+    });
+
+    await prisma.branchProduct.upsert({
+      where: { branchId_productId: { branchId: defaultBranch.id, productId: createdProduct.id } },
+      update: {},
+      create: {
+        tenantId: demoTenant.id,
+        branchId: defaultBranch.id,
+        productId: createdProduct.id,
+        sellingPrice: p.price,
+        costPrice: p.cost,
+      },
+    });
+
+    await prisma.inventory.upsert({
+      where: { branchId_productId: { branchId: defaultBranch.id, productId: createdProduct.id } },
+      update: {},
+      create: {
+        tenantId: demoTenant.id,
+        branchId: defaultBranch.id,
+        productId: createdProduct.id,
+        quantity: p.stock,
       },
     });
   }

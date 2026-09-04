@@ -75,7 +75,6 @@ export class SyncService {
             name: prod.name,
             sku: prod.sku || null,
             barcode: prod.barcode || null,
-            price: prod.price || 0,
             categoryId: backendCategoryId,
             active: prod.active !== 0,
           },
@@ -83,11 +82,59 @@ export class SyncService {
             name: prod.name,
             sku: prod.sku || null,
             barcode: prod.barcode || null,
-            price: prod.price || 0,
             categoryId: backendCategoryId,
             active: prod.active !== 0,
           },
         });
+
+        // Upsert BranchProduct for the default branch (Branch 1 or derived from context if available)
+        // Since sync payload currently might not have branchId array, we assume default branch 1 for now.
+        // We need to fetch the first branch of the tenant to associate.
+        const defaultBranch = await tx.branch.findFirst({ where: { tenantId } });
+        if (defaultBranch) {
+          await tx.branchProduct.upsert({
+            where: {
+              branchId_productId: {
+                branchId: defaultBranch.id,
+                productId: backendProd.id
+              }
+            },
+            create: {
+              tenantId,
+              branchId: defaultBranch.id,
+              productId: backendProd.id,
+              sellingPrice: prod.price || 0,
+              wholesalePrice: prod.wholesalePrice || 0,
+              costPrice: prod.cost || 0,
+              isActive: prod.active !== 0,
+            },
+            update: {
+              sellingPrice: prod.price || 0,
+              wholesalePrice: prod.wholesalePrice || 0,
+              costPrice: prod.cost || 0,
+              isActive: prod.active !== 0,
+            }
+          });
+
+          // Also upsert inventory
+          await tx.inventory.upsert({
+            where: {
+              branchId_productId: {
+                branchId: defaultBranch.id,
+                productId: backendProd.id
+              }
+            },
+            create: {
+              tenantId,
+              branchId: defaultBranch.id,
+              productId: backendProd.id,
+              quantity: prod.stockQuantity || 0,
+            },
+            update: {
+              quantity: prod.stockQuantity || 0,
+            }
+          });
+        }
         productIdMap.set(prod.id, backendProd.id);
       }
 

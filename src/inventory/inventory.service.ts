@@ -6,53 +6,83 @@ export class InventoryService {
   constructor(private prisma: PrismaService) {}
 
   async getBranchInventory(tenantId: number, branchId: number) {
-    return this.prisma.branchInventory.findMany({
-      where: { tenantId, branchId },
+    const products = await this.prisma.product.findMany({
+      where: { tenantId },
       include: {
-        product: {
-          include: { images: true, category: true }
-        }
+        images: true,
+        category: true,
+        branchProducts: { where: { branchId } },
+        inventories: { where: { branchId } }
       }
     });
+
+    // Map to the format the frontend expects (or similar)
+    return products.map(p => ({
+      ...p,
+      branchProduct: p.branchProducts[0] || null,
+      inventory: p.inventories[0] || null,
+      stock: p.inventories[0]?.quantity || 0,
+      price: p.branchProducts[0]?.sellingPrice || 0,
+      cost: p.branchProducts[0]?.costPrice || 0
+    }));
   }
 
   async stockAdjustment(tenantId: number, branchId: number, data: any) {
     const { productId, quantity, type, price, cost } = data; // type: 'IN', 'OUT', 'SET'
 
-    let inventory = await this.prisma.branchInventory.findUnique({
+    // 1. Handle Inventory (Stock)
+    let inventory = await this.prisma.inventory.findUnique({
       where: { branchId_productId: { branchId, productId } }
     });
 
     if (!inventory) {
       if (type === 'OUT') throw new NotFoundException('Product not in branch inventory');
       
-      // Create new inventory record
-      inventory = await this.prisma.branchInventory.create({
+      inventory = await this.prisma.inventory.create({
         data: {
           tenantId,
           branchId,
           productId,
-          stock: type === 'IN' || type === 'SET' ? quantity : 0,
-          price: price || 0,
-          cost: cost || 0,
+          quantity: type === 'IN' || type === 'SET' ? quantity : 0,
         }
       });
-      return inventory;
+    } else {
+      let newStock = inventory.quantity;
+      if (type === 'IN') newStock += quantity;
+      else if (type === 'OUT') newStock = Math.max(0, newStock - quantity);
+      else if (type === 'SET') newStock = quantity;
+
+      inventory = await this.prisma.inventory.update({
+        where: { id: inventory.id },
+        data: { quantity: newStock }
+      });
     }
 
-    // Update existing inventory
-    let newStock = inventory.stock;
-    if (type === 'IN') newStock += quantity;
-    else if (type === 'OUT') newStock = Math.max(0, newStock - quantity);
-    else if (type === 'SET') newStock = quantity;
-
-    return this.prisma.branchInventory.update({
-      where: { id: inventory.id },
-      data: {
-        stock: newStock,
-        price: price !== undefined ? price : inventory.price,
-        cost: cost !== undefined ? cost : inventory.cost,
-      }
+    // 2. Handle BranchProduct (Price/Cost)
+    let branchProduct = await this.prisma.branchProduct.findUnique({
+      where: { branchId_productId: { branchId, productId } }
     });
+
+    if (!branchProduct) {
+      branchProduct = await this.prisma.branchProduct.create({
+        data: {
+          tenantId,
+          branchId,
+          productId,
+          sellingPrice: price || 0,
+          costPrice: cost || 0,
+        }
+      });
+    } else {
+      branchProduct = await this.prisma.branchProduct.update({
+        where: { id: branchProduct.id },
+        data: {
+          sellingPrice: price !== undefined ? price : branchProduct.sellingPrice,
+          costPrice: cost !== undefined ? cost : branchProduct.costPrice,
+        }
+      });
+    }
+
+    return { inventory, branchProduct };
   }
 }

@@ -209,7 +209,8 @@ model Tenant {
   attendance        Attendance[]
   suppliers         Supplier[]
   branches          Branch[]
-  branchInventories BranchInventory[]
+  branchProducts    BranchProduct[]
+  inventories       Inventory[]
 
   subscription   Subscription?
   settings       TenantSettings?
@@ -416,7 +417,8 @@ model Branch {
   contact  String?
   manager  String?
 
-  inventory BranchInventory[]
+  branchProducts BranchProduct[]
+  inventories    Inventory[]
   sales     Sale[]
   employees Employee[]
 
@@ -427,16 +429,41 @@ model Branch {
   @@index([tenantId])
 }
 
-model BranchInventory {
+model BranchProduct {
   id        Int @id @default(autoincrement())
   tenantId  Int
   branchId  Int
   productId Int
 
-  stock    Int      @default(0)
-  minStock Int      @default(10)
-  price    Decimal  @db.Decimal(10, 2)
-  cost     Decimal? @db.Decimal(10, 2)
+  sellingPrice   Decimal  @db.Decimal(10, 2)
+  wholesalePrice Decimal? @db.Decimal(10, 2)
+  costPrice      Decimal? @db.Decimal(10, 2)
+  minimumStock   Int      @default(10)
+  maximumStock   Int?
+  reorderLevel   Int?
+  reorderQuantity Int?
+  isActive       Boolean  @default(true)
+  isSellable     Boolean  @default(true)
+  shelf          String?
+  rack           String?
+
+  branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, productId])
+  @@index([tenantId])
+}
+
+model Inventory {
+  id               Int @id @default(autoincrement())
+  tenantId         Int
+  branchId         Int
+  productId        Int
+  
+  quantity         Int @default(0)
+  reservedQuantity Int @default(0)
+  availableQuantity Int @default(0)
 
   branch  Branch  @relation(fields: [branchId], references: [id], onDelete: Cascade)
   product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
@@ -491,7 +518,7 @@ model Product {
   sku         String?
   offlineId   String? @unique
 
-  price         Decimal   @default(0) @db.Decimal(10, 2)
+
   // E-commerce
   showOnWebsite Boolean   @default(false)
   featured      Boolean   @default(false)
@@ -504,7 +531,8 @@ model Product {
 
   saleItems         SaleItem[]
   onlineOrderItems  OnlineOrderItem[]
-  branchInventories BranchInventory[]
+  branchProducts    BranchProduct[]
+  inventories       Inventory[]
 
   // SEO
   metaTitle       String?

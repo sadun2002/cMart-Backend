@@ -75,9 +75,18 @@ export class SalesService {
           throw new BadRequestException(`Product ${item.productId} not found`);
         }
         
+        const branchProduct = await tx.branchProduct.findUnique({
+          where: {
+            branchId_productId: {
+              branchId: data.branchId || 1, // Fallback to 1 if branchId is missing in early development
+              productId: item.productId,
+            }
+          }
+        });
+        
         // [SECURITY] Calculate total using DB Price, completely ignoring client's `item.price`.
         // To allow discounts later, a separate explicit `discount` field must be passed and verified.
-        const actualPrice = Number(product.price);
+        const actualPrice = branchProduct ? Number(branchProduct.sellingPrice) : 0;
         const lineTotal = actualPrice * item.quantity;
         calculatedSubtotal += lineTotal;
 
@@ -90,7 +99,7 @@ export class SalesService {
         });
         
         if (data.branchId) {
-          const inventory = await tx.branchInventory.findUnique({
+          const inventory = await tx.inventory.findUnique({
             where: {
               branchId_productId: {
                 branchId: data.branchId,
@@ -99,14 +108,14 @@ export class SalesService {
             }
           });
 
-          if (!inventory || inventory.stock < item.quantity) {
+          if (!inventory || inventory.quantity < item.quantity) {
             throw new BadRequestException(`Insufficient stock for ${product.name} at branch ${data.branchId}`);
           }
 
           // 2. Reduce stock
-          await tx.branchInventory.update({
+          await tx.inventory.update({
             where: { id: inventory.id },
-            data: { stock: { decrement: item.quantity } },
+            data: { quantity: { decrement: item.quantity } },
           });
         }
       }
