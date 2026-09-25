@@ -163,7 +163,7 @@ export class SalesService {
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
-        user: { select: { name: true } },
+        user: { select: { name: true, email: true } },
         customer: true,
         items: true,
       }
@@ -176,7 +176,7 @@ export class SalesService {
       orderBy: { createdAt: 'desc' },
       take: 50,
       include: {
-        user: { select: { name: true } },
+        user: { select: { name: true, email: true } },
       }
     });
   }

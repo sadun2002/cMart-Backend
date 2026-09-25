@@ -15,8 +15,8 @@ export class CloudSyncGuard implements CanActivate {
       return true;
     }
 
-    // Skip check for auth routes or webhooks if needed
-    if (request.path.includes('/auth/')) {
+    // Skip check for auth routes, reset-data, or webhooks if needed
+    if (request.path.includes('/auth/') || request.path.includes('/reset-data')) {
       return true;
     }
 

@@ -214,4 +214,70 @@ export class SyncService {
       return { success: true, message: 'Sync completed successfully' };
     });
   }
+
+  async resetStoreBusinessData(tenantId: number) {
+    this.logger.warn(`Resetting all cloud business records for tenant ${tenantId}`);
+    return this.prisma.$transaction(async (tx) => {
+      // 1. Online orders and Sale transactions
+      await tx.onlineOrderItem.deleteMany({
+        where: { order: { tenantId } },
+      });
+      await tx.orderHistory.deleteMany({
+        where: { order: { tenantId } },
+      });
+      await tx.onlineOrder.deleteMany({
+        where: { tenantId },
+      });
+
+      await tx.saleItem.deleteMany({
+        where: { sale: { tenantId } },
+      });
+      await tx.sale.deleteMany({
+        where: { tenantId },
+      });
+
+      // 2. Inventory and branch product mappings
+      await tx.inventory.deleteMany({
+        where: { tenantId },
+      });
+      await tx.branchProduct.deleteMany({
+        where: { tenantId },
+      });
+
+      // 3. Products and Images
+      await tx.productImage.deleteMany({
+        where: { product: { tenantId } },
+      });
+      await tx.product.deleteMany({
+        where: { tenantId },
+      });
+
+      // 4. Categories
+      await tx.category.deleteMany({
+        where: { tenantId },
+      });
+
+      // 5. Contacts: Customers, Suppliers
+      await tx.customer.deleteMany({
+        where: { tenantId },
+      });
+      await tx.supplier.deleteMany({
+        where: { tenantId },
+      });
+
+      // 6. Expenses, Attendance, Banners
+      await tx.expense.deleteMany({
+        where: { tenantId },
+      });
+      await tx.attendance.deleteMany({
+        where: { tenantId },
+      });
+      await tx.banner.deleteMany({
+        where: { tenantId },
+      });
+
+      this.logger.log(`Successfully wiped all business records for tenant ${tenantId}. Tenant structure & credentials preserved.`);
+      return { success: true, message: 'All cloud store business data has been completely reset.' };
+    });
+  }
 }

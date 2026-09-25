@@ -85,6 +85,43 @@ export class AuthService {
   }
 
   // ─────────────────────────────────────────────────────────
+  // CHECK & SYNC SUBSCRIPTION STATUS
+  // ─────────────────────────────────────────────────────────
+  private async checkAndSyncSubscription(tenantId: number, sub: any) {
+    if (!sub || !tenantId) return sub;
+    const now = Date.now();
+
+    if (sub.status === 'TRIAL') {
+      if (sub.trialEndDate && new Date(sub.trialEndDate).getTime() < now) {
+        await this.prisma.subscription.update({
+          where: { tenantId },
+          data: { status: 'EXPIRED' },
+        });
+        sub.status = 'EXPIRED';
+      }
+    } else if (sub.status === 'ACTIVE') {
+      const end = sub.endDate || sub.nextBillingDate;
+      if (end && new Date(end).getTime() < now) {
+        await this.prisma.subscription.update({
+          where: { tenantId },
+          data: { status: 'EXPIRED' },
+        });
+        sub.status = 'EXPIRED';
+      } else if (!sub.endDate && !sub.nextBillingDate) {
+        // Active subscription without end date: set to 30 days from now
+        const nextDate = new Date(now + 30 * 24 * 60 * 60 * 1000);
+        await this.prisma.subscription.update({
+          where: { tenantId },
+          data: { nextBillingDate: nextDate, endDate: nextDate },
+        });
+        sub.nextBillingDate = nextDate;
+        sub.endDate = nextDate;
+      }
+    }
+    return sub;
+  }
+
+  // ─────────────────────────────────────────────────────────
   // UNIVERSAL LOGIN — detects if it's a super admin or user
   // ─────────────────────────────────────────────────────────
   async login(dto: LoginDto) {
@@ -165,6 +202,10 @@ export class AuthService {
     let redirectTo = '/employee/dashboard';
     if (user.role === UserRole.STORE_OWNER) redirectTo = '/owner/dashboard';
     else if (user.role === UserRole.CUSTOMER) redirectTo = 'storefront'; // Handled by frontend router
+
+    if (user.tenant?.subscription && user.tenantId) {
+      user.tenant.subscription = await this.checkAndSyncSubscription(user.tenantId, user.tenant.subscription);
+    }
 
     return {
       ...tokens,
@@ -360,7 +401,7 @@ export class AuthService {
         select: { id: true, email: true, name: true, role: true, avatar: true, createdAt: true },
       });
     }
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true, email: true, name: true, role: true, phone: true, avatar: true,
@@ -374,6 +415,12 @@ export class AuthService {
         employee: { select: { permissions: true, position: true, employeeCode: true } },
       },
     });
+
+    if (user?.tenant?.subscription && user.tenantId) {
+      user.tenant.subscription = await this.checkAndSyncSubscription(user.tenantId, user.tenant.subscription);
+    }
+
+    return user;
   }
 
   async updateTenantPlan(userId: number, plan: string) {
@@ -408,10 +455,27 @@ export class AuthService {
       select: { id: true, businessName: true, subdomain: true, plan: true, active: true },
     });
 
+    const now = new Date();
+    const nextBilling = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+
     await this.prisma.subscription.upsert({
       where: { tenantId: user.tenantId },
-      update: { plan: plan as any, status: 'ACTIVE' },
-      create: { tenantId: user.tenantId, plan: plan as any, status: 'ACTIVE' },
+      update: { 
+        plan: plan as any, 
+        status: 'ACTIVE',
+        startDate: now,
+        nextBillingDate: nextBilling,
+        endDate: nextBilling,
+        trialEndDate: null,
+      },
+      create: { 
+        tenantId: user.tenantId, 
+        plan: plan as any, 
+        status: 'ACTIVE',
+        startDate: now,
+        nextBillingDate: nextBilling,
+        endDate: nextBilling,
+      },
     });
 
     if (currentSub && currentSub.plan !== plan) {
@@ -494,8 +558,29 @@ export class AuthService {
       }
     }
 
+    if (tenant.subscription && tenant.id) {
+      tenant.subscription = await this.checkAndSyncSubscription(tenant.id, tenant.subscription);
+    }
+
     const sub = tenant.subscription;
-    const endDate = sub?.endDate || sub?.nextBillingDate || sub?.trialEndDate || null;
+    let endDate: Date | null = null;
+    let isExpired = false;
+
+    if (sub) {
+      if (sub.status === 'ACTIVE') {
+        endDate = sub.endDate || sub.nextBillingDate || null;
+      } else if (sub.status === 'TRIAL') {
+        endDate = sub.trialEndDate || tenant.trialEndsAt || null;
+      } else {
+        // EXPIRED, CANCELLED, SUSPENDED
+        endDate = sub.endDate || sub.nextBillingDate || sub.trialEndDate || null;
+        isExpired = true;
+      }
+
+      if (endDate && new Date(endDate).getTime() < Date.now()) {
+        isExpired = true;
+      }
+    }
 
     let cloudRetentionDaysLeft: number | null = null;
     if (tenant.plan === 'STARTUP' && tenant.cloudRetentionUntil) {
@@ -505,7 +590,10 @@ export class AuthService {
 
     return { 
       success: true, 
+      isExpired,
       subscriptionEndDate: endDate,
+      plan: sub?.plan || tenant.plan,
+      status: sub?.status || 'UNKNOWN',
       cloudRetentionDaysLeft
     };
   }

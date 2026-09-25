@@ -11,7 +11,7 @@ export class SyncController {
   constructor(private readonly syncService: SyncService) {}
 
   @Post('bulk')
-  @Roles('SUPER_ADMIN', 'ADMIN') // Only admins of the tenant can sync data
+  @Roles('STORE_OWNER', 'SUPER_ADMIN', 'ADMIN') // Allow store owner and admins of the tenant to sync data
   async bulkSync(
     @Request() req,
     @Body()
@@ -27,5 +27,12 @@ export class SyncController {
     const tenantId = req.user.tenantId;
     const userId = req.user.id;
     return this.syncService.processBulkSync(tenantId, userId, payload);
+  }
+
+  @Post('reset-data')
+  @Roles('STORE_OWNER', 'SUPER_ADMIN', 'ADMIN')
+  async resetData(@Request() req) {
+    const tenantId = req.user.tenantId;
+    return this.syncService.resetStoreBusinessData(tenantId);
   }
 }
