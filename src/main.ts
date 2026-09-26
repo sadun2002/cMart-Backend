@@ -39,35 +39,32 @@ async function bootstrap() {
     }),
   );
 
-  // CORS — allow frontend + subdomain storefronts
+  // CORS — allow frontend + subdomain storefronts + mobile & desktop
   app.enableCors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true); // Postman, server-to-server
-      const allowedPatterns = [
-        frontendUrl,
-        /\.cmart\.lk$/,
-        /\.chathudisa\.com$/, // Custom domain support
-        /\.vercel\.app$/, // Allow all Vercel preview/production links
-        /^https:\/\/c-mart-frontend\.vercel\.app$/, // Specific frontend domain
-        /(localhost|127\.0\.0\.1)(:\d+)?$/, // Allow local dev and desktop app
-        /^https?:\/\/tauri\.localhost$/,
-        /^tauri:\/\/localhost$/,
-      ];
-      const allowed = allowedPatterns.some((pattern) =>
-        typeof pattern === 'string' ? origin === pattern : pattern.test(origin),
-      );
-      callback(allowed ? null : new Error('Not allowed by CORS'), allowed);
+      if (!origin) return callback(null, true);
+      const isAllowed = 
+        origin === frontendUrl ||
+        origin.includes('chathudisa.com') ||
+        origin.includes('cmart.lk') ||
+        origin.includes('vercel.app') ||
+        origin.includes('localhost') ||
+        origin.includes('127.0.0.1') ||
+        origin.startsWith('tauri://') ||
+        origin.startsWith('https://tauri.localhost');
+
+      callback(null, isAllowed);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
   });
 
   // Global prefix
   app.setGlobalPrefix('api/v1');
 
-  await app.listen(port);
-  Logger.log(`🚀 cMart API running on: http://localhost:${port}/api/v1`, 'Bootstrap');
+  await app.listen(port, '0.0.0.0');
+  Logger.log(`🚀 cMart API running on port ${port} (0.0.0.0)`, 'Bootstrap');
 }
 
 bootstrap();
