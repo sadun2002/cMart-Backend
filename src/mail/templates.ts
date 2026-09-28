@@ -140,7 +140,11 @@ export const forgotPasswordTemplate = (name: string, resetLink: string) => baseT
     <a href="${resetLink}" class="button">Reset Password</a>
   </div>
   <p class="p" style="font-size: 14px; color: #64748b;">
-    If you did not request a password reset, please ignore this email or contact support if you have concerns. This link will expire in 15 minutes.
+    If you did not request a password reset, please ignore this email or contact support if you have concerns. This link will expire in 1 hour.
+  </p>
+  <p class="p" style="font-size: 12px; color: #94a3b8; word-break: break-all; margin-top: 24px; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+    If the button above does not work, copy and paste this link into your browser:<br>
+    <a href="${resetLink}" style="color: #2563eb; text-decoration: underline;">${resetLink}</a>
   </p>
 `);
 

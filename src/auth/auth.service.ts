@@ -17,6 +17,8 @@ import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
@@ -27,7 +29,7 @@ export class AuthService {
   // ─────────────────────────────────────────────────────────
   // FORGOT PASSWORD
   // ─────────────────────────────────────────────────────────
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string, clientOrigin?: string) {
     const admin = await this.prisma.superAdmin.findUnique({ where: { email } });
     const user = await this.prisma.user.findUnique({ where: { email } });
 
@@ -40,15 +42,36 @@ export class AuthService {
 
     const token = this.jwtService.sign(
       { sub: account!.id, email: account!.email, type, action: 'reset_password' },
-      { expiresIn: '15m' }
+      { expiresIn: '1h' }
     );
 
-    const resetLink = `http://localhost:3000/reset-password?token=${token}`;
+    // Resolve base frontend URL:
+    // Priority:
+    // 1. clientOrigin if it's a real public web domain (not localhost, not tauri)
+    // 2. FRONTEND_URL or PLATFORM_URL if not localhost
+    // 3. Fallback to production platform URL: https://cmart.chathudisa.com
+    let baseUrl = 'https://cmart.chathudisa.com';
+    const envFrontend = this.configService.get<string>('FRONTEND_URL');
+    const envPlatform = this.configService.get<string>('PLATFORM_URL');
+
+    if (clientOrigin && !clientOrigin.includes('localhost') && !clientOrigin.includes('tauri')) {
+      try {
+        const parsed = new URL(clientOrigin);
+        baseUrl = parsed.origin;
+      } catch {
+        baseUrl = clientOrigin.replace(/\/$/, '');
+      }
+    } else if (envFrontend && !envFrontend.includes('localhost')) {
+      baseUrl = envFrontend.replace(/\/$/, '');
+    } else if (envPlatform && !envPlatform.includes('localhost')) {
+      baseUrl = envPlatform.replace(/\/$/, '');
+    }
+
+    const resetLink = `${baseUrl}/reset-password?token=${token}`;
     
-    // In production, send this via email. For now, log it and return it in response for dev purposes.
-    console.log(`[DEV ONLY] Password Reset Link for ${email}: ${resetLink}`);
+    this.logger.log(`Password Reset Link for ${email}: ${resetLink}`);
     
-    // Send real email
+    // Send real email via Resend
     await this.mailService.sendForgotPassword(account!.email, account!.name, resetLink);
 
     return { success: true, message: 'Reset link sent' };

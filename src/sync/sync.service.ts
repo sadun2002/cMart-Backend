@@ -276,6 +276,19 @@ export class SyncService {
         where: { tenantId },
       });
 
+      // 7. Staff & Employees (preserve STORE_OWNER user)
+      await tx.employee.deleteMany({
+        where: { tenantId },
+      });
+      await tx.user.deleteMany({
+        where: { tenantId, role: { not: 'STORE_OWNER' } },
+      });
+
+      // 8. Branches
+      await tx.branch.deleteMany({
+        where: { tenantId },
+      });
+
       this.logger.log(`Successfully wiped all business records for tenant ${tenantId}. Tenant structure & credentials preserved.`);
       return { success: true, message: 'All cloud store business data has been completely reset.' };
     });

@@ -1,4 +1,4 @@
-import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Query, Patch } from '@nestjs/common';
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus, Query, Patch, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RegisterStoreDto, RefreshTokenDto, UpdatePlanDto, RegisterCustomerDto, ForgotPasswordDto, ResetPasswordDto, SyncDeviceDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -18,8 +18,9 @@ export class AuthController {
   @Public()
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
-  forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto.email);
+  forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: any) {
+    const origin = req?.headers?.origin || req?.headers?.referer;
+    return this.authService.forgotPassword(dto.email, dto.frontendUrl || origin);
   }
 
   /**
