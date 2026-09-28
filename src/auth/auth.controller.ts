@@ -19,8 +19,8 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: any) {
-    const origin = req?.headers?.origin || req?.headers?.referer;
-    return this.authService.forgotPassword(dto.email, dto.frontendUrl || origin);
+    const origin = req?.headers?.['x-frontend-url'] || dto.frontendUrl || req?.headers?.origin || req?.headers?.referer;
+    return this.authService.forgotPassword(dto.email, origin);
   }
 
   /**
